@@ -82,6 +82,33 @@ def _label_score(score: float) -> str:
     return "Focus required"
 
 
+def _timing_accuracy_score(mean_timing_error_ms: Optional[float]) -> float:
+    error = abs(float(mean_timing_error_ms or 0.0))
+    if error <= 50:
+        return 100.0
+    if error <= 100:
+        return _clamp_score(100.0 - (error - 50.0) / 50.0 * 50.0)
+    return _clamp_score(50.0 - (error - 100.0) / 100.0 * 50.0)
+
+
+def _timing_stability_score(timing_std_ms: Optional[float]) -> float:
+    value = float(timing_std_ms or 0.0)
+    if value <= 40:
+        return 100.0
+    if value <= 80:
+        return _clamp_score(100.0 - (value - 40.0) / 40.0 * 50.0)
+    return _clamp_score(50.0 - (value - 80.0) / 80.0 * 50.0)
+
+
+def _strength_stability_score(strength_std_db: Optional[float]) -> float:
+    value = float(strength_std_db or 0.0)
+    if value <= 8:
+        return 100.0
+    if value <= 12:
+        return _clamp_score(100.0 - (value - 8.0) / 4.0 * 50.0)
+    return _clamp_score(50.0 - (value - 12.0) / 12.0 * 50.0)
+
+
 def _compute_score_summary(
     *,
     mean_timing_error_ms: Optional[float],
@@ -89,13 +116,10 @@ def _compute_score_summary(
     dynamic_range_db: Optional[float],
     strength_std_db: Optional[float],
 ) -> Dict[str, Any]:
-    bias_penalty = min(abs(mean_timing_error_ms or 0.0) / 100.0, 1.0)
-    bias_score = _clamp_score(100.0 * (1.0 - bias_penalty))
+    accuracy_score = _timing_accuracy_score(mean_timing_error_ms)
+    stability_score = _timing_stability_score(timing_std_ms)
 
-    stability_penalty = min((timing_std_ms or 0.0) / 80.0, 1.0)
-    stability_score = _clamp_score(100.0 * (1.0 - stability_penalty))
-
-    timing_score = _clamp_score(0.4 * bias_score + 0.6 * stability_score)
+    timing_score = _clamp_score(0.4 * accuracy_score + 0.6 * stability_score)
 
     range_score: float
     dynamic_range = dynamic_range_db or 0.0
@@ -108,25 +132,33 @@ def _compute_score_summary(
     else:
         range_score = 60.0
 
-    strength_penalty = min((strength_std_db or 0.0) / 12.0, 1.0)
-    strength_consistency_score = _clamp_score(100.0 * (1.0 - strength_penalty))
+    strength_consistency_score = _strength_stability_score(strength_std_db)
 
     dynamics_score = _clamp_score(0.6 * range_score + 0.4 * strength_consistency_score)
-    overall_score = _clamp_score(0.7 * timing_score + 0.3 * dynamics_score)
+    base_score = 0.5 * accuracy_score + 0.3 * stability_score + 0.2 * strength_consistency_score
+    penalty = max(0.0, (60.0 - min(accuracy_score, stability_score, strength_consistency_score)) * 0.5)
+    overall_score = _clamp_score(base_score - penalty)
 
     return {
         "overall_score": round(overall_score, 1),
         "timing_score": round(timing_score, 1),
         "dynamics_score": round(dynamics_score, 1),
+        "overall": {
+            "base_score": round(base_score, 1),
+            "penalty": round(penalty, 1),
+            "formula": "0.5*accuracy + 0.3*stability + 0.2*strength_stability - penalty",
+        },
         "timing": {
-            "bias_score": round(bias_score, 1),
+            "accuracy_score": round(accuracy_score, 1),
             "stability_score": round(stability_score, 1),
             "label": _label_score(timing_score),
+            "formula": "0.4*accuracy_score + 0.6*stability_score",
         },
         "dynamics": {
             "range_score": round(range_score, 1),
-            "consistency_score": round(strength_consistency_score, 1),
+            "strength_stability_score": round(strength_consistency_score, 1),
             "label": _label_score(dynamics_score),
+            "formula": "0.6*range_score + 0.4*strength_stability_score",
         },
     }
 

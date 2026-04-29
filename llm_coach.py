@@ -230,6 +230,7 @@ def generate_feedback(
     *,
     target_bpm: int = 60,
     output_path: Optional[str] = None,
+    save_output: bool = False,
 ) -> Dict[str, Any]:
     analyzer_summary = _build_analyzer_summary(features, rules)
     analyzer_summary_zh = _translate_analyzer_summary(analyzer_summary)
@@ -248,8 +249,6 @@ def generate_feedback(
 
     markdown_destination = _infer_feedback_output_path(features, output_path)
     json_destination = markdown_destination.with_suffix(".json")
-    markdown_destination.parent.mkdir(parents=True, exist_ok=True)
-    markdown_destination.write_text(markdown, encoding="utf-8")
 
     feedback_json = {
         "analyzer_summary_zh": analyzer_summary_zh,
@@ -266,10 +265,14 @@ def generate_feedback(
         "source_path": features.get("source_path"),
         "features_json_path": features.get("json_output_path"),
     }
-    json_destination.write_text(
-        json.dumps(feedback_json, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+
+    if save_output:
+        markdown_destination.parent.mkdir(parents=True, exist_ok=True)
+        markdown_destination.write_text(markdown, encoding="utf-8")
+        json_destination.write_text(
+            json.dumps(feedback_json, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     return {
         "analyzer_summary_zh": analyzer_summary_zh,
@@ -281,4 +284,6 @@ def generate_feedback(
         "markdown": markdown,
         "feedback_output_path": str(markdown_destination.resolve()),
         "feedback_json_output_path": str(json_destination.resolve()),
+        "saved": save_output,
+        "feedback_json": feedback_json,
     }
