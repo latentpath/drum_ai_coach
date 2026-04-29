@@ -1,0 +1,30 @@
+{
+  "analyzer_summary": "The recording is around 123 BPM with 248 detected hits. The average gap between hits is about 242.1 ms, with interval variation around 119.8 ms. Loudness averages around -3.6 dB, with strength variation 3.2 dB and dynamic range 38.6 dB. The student's timing is unstable.",
+  "coaching_advice": "- Practice with a 100 BPM metronome. Practice counting subdivisions.",
+  "encouragement": "Good job getting a full take recorded - a little focused timing work will make the groove feel much stronger.",
+  "markdown": "## Analyzer Summary\nThe recording is around 123 BPM with 248 detected hits. The average gap between hits is about 242.1 ms, with interval variation around 119.8 ms. Loudness averages around -3.6 dB, with strength variation 3.2 dB and dynamic range 38.6 dB. The student's timing is unstable.\n\n## Coaching Advice\n- Practice with a 100 BPM metronome. Practice counting subdivisions.\n\n## Encouragement\nGood job getting a full take recorded - a little focused timing work will make the groove feel much stronger.\n",
+  "target_bpm": 100,
+  "rule_hits": [
+    {
+      "issue": "unstable_timing",
+      "summary": "The student's timing is unstable.",
+      "suggestion": "Practice counting subdivisions.",
+      "evidence": {
+        "timing_std_ms": 140.38155911237828
+      }
+    }
+  ],
+  "analyzer_features": {
+    "mean_timing_error_ms": -3.0897520298454477,
+    "timing_std_ms": 140.38155911237828,
+    "dynamic_range_db": 38.60589408874512,
+    "bpm_estimate": 123.046875,
+    "onset_count": 248,
+    "average_interval_ms": 242.0703774087233,
+    "interval_std_ms": 119.75885027505348,
+    "average_strength_db": -3.6002827613584456,
+    "strength_std_db": 3.212552653710377
+  },
+  "source_path": "/Users/yuqingshang/drum_ai_coach/data/raw/test1.wav",
+  "features_json_path": "/Users/yuqingshang/drum_ai_coach/data/processed/test1_features.json"
+}
