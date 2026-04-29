@@ -119,28 +119,8 @@ def _render_results() -> None:
     st.markdown("## Tempo Match / 速度匹配")
 
     with st.container(border=True):
-        col_mode, col_bpm = st.columns([2, 1])
-
-        with col_mode:
-            practice_mode = st.selectbox(
-                "Practice mode / 练习模式",
-                [
-                    "Play on beat / 四分音符",
-                    "Fill or faster hits / 八分音符",
-                    "Fast practice / 十六分音符",
-                ],
-                key="practice_mode",
-            )
-
-        with col_bpm:
-            target_bpm = st.number_input(
-                "Target BPM / 目标 BPM",
-                min_value=40,
-                max_value=240,
-                value=int(st.session_state.get("target_bpm", 60)),
-                step=1,
-                key="tempo_match_target_bpm",
-            )
+        practice_mode = st.session_state.get("practice_mode", "Play on beat / 四分音符")
+        target_bpm = int(st.session_state.get("target_bpm", 60))
 
         mode_factor = {
             "Play on beat / 四分音符": 1,
@@ -343,8 +323,23 @@ st.info(
     "中文：开始录音后，需要先停止录音。只有下面出现可回放的音频播放器后，才表示录音已经成功，可以点击 Analyze。"
 )
 
+control_col1, control_col2 = st.columns([2, 1])
+
+with control_col1:
+    practice_mode = st.selectbox(
+        "Practice mode / 练习模式",
+        [
+            "Play on beat / 四分音符",
+            "Fill or faster hits / 八分音符",
+            "Fast practice / 十六分音符",
+        ],
+        key="practice_mode",
+    )
+
+with control_col2:
+    target_bpm = st.number_input("Target BPM", value=60, step=1, key="target_bpm")
+
 audio_value = st.audio_input("Record your drum practice")
-target_bpm = st.number_input("Target BPM", value=60, step=1, key="target_bpm")
 
 if audio_value:
     st.success("Recording ready / 录音已准备好")
