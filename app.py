@@ -356,7 +356,19 @@ if analyze_clicked:
             temp_audio_path = tmp.name
 
         try:
-            features = extract_features(temp_audio_path, int(target_bpm))
+            note_factor_map = {
+                "Play on beat / 四分音符": 1.0,
+                "Fill or faster hits / 八分音符": 2.0,
+                "Fast practice / 十六分音符": 4.0,
+            }
+            note_factor = note_factor_map.get(st.session_state.get("practice_mode"), 1.0)
+
+            features = extract_features(
+                temp_audio_path,
+                60,
+                target_bpm=float(target_bpm),
+                note_factor=note_factor,
+            )
             rules = get_rules(features)
             feedback = generate_feedback(
                 features,

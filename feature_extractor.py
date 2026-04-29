@@ -106,6 +106,8 @@ def extract_features_to_json(
     *,
     source_path: Optional[str] = None,
     output_path: Optional[AudioInput] = None,
+    target_bpm: Optional[float] = None,
+    note_factor: float = 1.0,
     hop_length: int = 512,
     n_fft: int = 2048,
 ) -> Dict[str, Any]:
@@ -138,14 +140,25 @@ def extract_features_to_json(
     hit_intervals_ms = hit_intervals_sec * 1000.0
 
     bpm = _estimate_tempo(onset_env, sample_rate, hop_length)
-    beat_interval_sec = (60.0 / bpm) if bpm else None
+    recording_bpm = bpm
+
+    expected_hit_bpm: Optional[float] = None
+    beat_interval_source = "recording_bpm"
+    if target_bpm is not None and target_bpm > 0 and note_factor > 0:
+        expected_hit_bpm = float(target_bpm) * float(note_factor)
+        beat_interval_sec = 60.0 / expected_hit_bpm
+        beat_interval_source = "target_bpm"
+    else:
+        beat_interval_sec = (60.0 / recording_bpm) if recording_bpm else None
 
     timing_deviation_ms: List[float] = []
+    timing_interval_error_ms: List[float] = []
+    true_interval_ms: Optional[float] = None
     if beat_interval_sec and len(onset_times) >= 2:
-        start_time = float(onset_times[0])
-        beat_numbers = np.rint((onset_times - start_time) / beat_interval_sec).astype(int)
-        expected_times = start_time + beat_numbers * beat_interval_sec
-        timing_deviation_ms = ((onset_times - expected_times) * 1000.0).tolist()
+        true_interval_ms = float(beat_interval_sec * 1000.0)
+        record_intervals_ms = np.diff(onset_times) * 1000.0
+        timing_interval_error_ms = (record_intervals_ms - true_interval_ms).tolist()
+        timing_deviation_ms = timing_interval_error_ms
 
     rms = librosa.feature.rms(
         y=waveform,
@@ -202,14 +215,24 @@ def extract_features_to_json(
         "duration_sec": float(len(waveform) / sample_rate),
         "analysis_type": "drum_timing_and_dynamics",
         "onset_count": int(len(onset_times)),
-        "bpm_estimate": _ensure_jsonable(bpm),
+        "bpm_estimate": _ensure_jsonable(recording_bpm),
+        "recording_bpm": _ensure_jsonable(recording_bpm),
+        "target_bpm": _ensure_jsonable(target_bpm),
+        "note_factor": _ensure_jsonable(note_factor),
+        "expected_hit_bpm": _ensure_jsonable(expected_hit_bpm),
         "beat_interval_sec": _ensure_jsonable(beat_interval_sec),
+        "beat_interval_source": beat_interval_source,
+        "true_interval_ms": _ensure_jsonable(true_interval_ms),
         "onset_times_seconds": [float(t) for t in onset_times.tolist()],
         "hit_intervals_sec": [float(x) for x in hit_intervals_sec.tolist()],
         "hit_intervals_ms": [float(x) for x in hit_intervals_ms.tolist()],
         "average_interval_ms": _ensure_jsonable(float(np.mean(hit_intervals_ms)) if len(hit_intervals_ms) > 0 else None),
         "interval_std_ms": _ensure_jsonable(float(np.std(hit_intervals_ms)) if len(hit_intervals_ms) > 1 else None),
         "timing_deviation_ms": [float(x) for x in timing_deviation_ms],
+        "timing_interval_error_ms": [float(x) for x in timing_interval_error_ms],
+        "mean_timing_error_ms": _ensure_jsonable(
+            float(np.mean(np.abs(timing_interval_error_ms))) if len(timing_interval_error_ms) > 0 else None
+        ),
         "timing_deviation_mean_ms": _ensure_jsonable(
             float(np.mean(timing_deviation_ms)) if len(timing_deviation_ms) > 0 else None
         ),
@@ -249,6 +272,8 @@ def extract_features(
     max_duration_sec: Optional[float] = 60.0,
     *,
     output_path: Optional[AudioInput] = None,
+    target_bpm: Optional[float] = None,
+    note_factor: float = 1.0,
     target_sr: int = 22050,
 ) -> Dict[str, Any]:
     """
@@ -275,4 +300,6 @@ def extract_features(
         sample_rate,
         source_path=source_path,
         output_path=output_path,
+        target_bpm=target_bpm,
+        note_factor=note_factor,
     )
