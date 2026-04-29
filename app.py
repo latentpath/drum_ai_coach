@@ -78,17 +78,22 @@ st.caption(
     "中文：录一小段打鼓练习，选择目标 BPM，然后点击 Analyze 生成反馈报告。"
     "报告会保存到 data/processed/ 目录。"
 )
+st.info(
+    "EN: After you start recording, you must stop the recorder first. When the audio player appears below, the recording is ready to analyze.\n\n"
+    "中文：开始录音后，需要先停止录音。只有下面出现可回放的音频播放器后，才表示录音已经成功，可以点击 Analyze。"
+)
 
 audio_value = st.audio_input("Record your drum practice")
 target_bpm = st.number_input("Target BPM", value=60, step=1)
 
 if audio_value:
+    st.success("Recording ready / 录音已准备好")
     st.audio(audio_value)
 
-if st.button("Analyze"):
-    if audio_value is None:
-        st.error("Please record audio first.")
-    else:
+analyze_clicked = st.button("Analyze", disabled=audio_value is None)
+
+if analyze_clicked:
+    if audio_value is not None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
@@ -181,6 +186,8 @@ if st.button("Analyze"):
         st.subheader("Feedback / 反馈")
         st.markdown(feedback["markdown"])
         st.caption(f"Saved: {feedback['feedback_output_path']}")
+    else:
+        st.error("Please finish recording first. Wait until the audio player appears, then click Analyze.")
 
         st.write("Feedback saved to:")
         st.code(feedback["feedback_output_path"])
