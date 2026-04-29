@@ -127,12 +127,24 @@ def extract_features_to_json(
         hop_length=hop_length,
         n_fft=n_fft,
     )
+
+    expected_hit_bpm: Optional[float] = None
+    expected_interval_sec: Optional[float] = None
+    if target_bpm is not None and target_bpm > 0 and note_factor > 0:
+        expected_hit_bpm = float(target_bpm) * float(note_factor)
+        expected_interval_sec = 60.0 / expected_hit_bpm
+
+    min_gap_sec = (expected_interval_sec * 0.7) if expected_interval_sec else 0.0
+    wait_frames = max(1, int(min_gap_sec * sample_rate / hop_length)) if min_gap_sec > 0 else 1
+
     onset_frames = librosa.onset.onset_detect(
         onset_envelope=onset_env,
         sr=sample_rate,
         hop_length=hop_length,
         units="frames",
         backtrack=False,
+        wait=wait_frames,
+        delta=0.2,
     )
     onset_times = librosa.frames_to_time(onset_frames, sr=sample_rate, hop_length=hop_length)
 
@@ -142,10 +154,8 @@ def extract_features_to_json(
     bpm = _estimate_tempo(onset_env, sample_rate, hop_length)
     recording_bpm = bpm
 
-    expected_hit_bpm: Optional[float] = None
     beat_interval_source = "recording_bpm"
     if target_bpm is not None and target_bpm > 0 and note_factor > 0:
-        expected_hit_bpm = float(target_bpm) * float(note_factor)
         beat_interval_sec = 60.0 / expected_hit_bpm
         beat_interval_source = "target_bpm"
     else:
