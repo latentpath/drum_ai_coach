@@ -83,6 +83,8 @@ def _label_score(score: float) -> str:
 
 
 def _timing_accuracy_score(mean_timing_error_ms: Optional[float]) -> float:
+    # Score timing accuracy by absolute deviation:
+    # -50 ms and +50 ms should be penalized equally.
     error = abs(float(mean_timing_error_ms or 0.0))
     if error <= 50:
         return 100.0

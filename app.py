@@ -190,8 +190,10 @@ def _render_results() -> None:
                 """
             )
 
-        if mean_error is not None and abs(float(mean_error)) > 50:
-            st.warning("你的节奏偏差较大，可能存在明显抢拍或拖拍。")
+        if mean_error is not None and float(mean_error) > 50:
+            st.warning("你的平均节奏偏差大于 +50 ms，说明整体有些拖拍。")
+        elif mean_error is not None and float(mean_error) < -50:
+            st.warning("你的平均节奏偏差小于 -50 ms，说明整体有些抢拍。")
 
         if timing_std is not None and float(timing_std) > 40:
             st.warning("你的节奏稳定性还有提升空间，击打间的时间波动比较明显。")
