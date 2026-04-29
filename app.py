@@ -116,6 +116,61 @@ def _render_results() -> None:
 
     st.divider()
 
+    st.markdown("## Tempo Match / 速度匹配")
+
+    with st.container(border=True):
+        col_mode, col_bpm = st.columns([2, 1])
+
+        with col_mode:
+            practice_mode = st.selectbox(
+                "Practice mode / 练习模式",
+                [
+                    "Play on beat / 四分音符",
+                    "Fill or faster hits / 八分音符",
+                    "Fast practice / 十六分音符",
+                ],
+                key="practice_mode",
+            )
+
+        with col_bpm:
+            target_bpm = st.number_input(
+                "Target BPM / 目标 BPM",
+                min_value=40,
+                max_value=240,
+                value=int(st.session_state.get("target_bpm", 60)),
+                step=1,
+                key="tempo_match_target_bpm",
+            )
+
+        mode_factor = {
+            "Play on beat / 四分音符": 1,
+            "Fill or faster hits / 八分音符": 2,
+            "Fast practice / 十六分音符": 4,
+        }
+
+        expected_bpm = target_bpm * mode_factor[practice_mode]
+        recording_bpm = features.get("recording_bpm", features.get("bpm_estimate"))
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Target BPM", int(target_bpm))
+        col2.metric("Expected Hit BPM", int(expected_bpm))
+
+        if recording_bpm is not None:
+            col3.metric("Recording BPM", round(float(recording_bpm), 1))
+            bpm_diff = float(recording_bpm) - float(expected_bpm)
+
+            if abs(bpm_diff) <= 5:
+                st.success(f"Good tempo match ({bpm_diff:+.1f} BPM)")
+            elif bpm_diff > 5:
+                st.warning(f"Faster than expected ({bpm_diff:+.1f} BPM)")
+            else:
+                st.warning(f"Slower than expected ({bpm_diff:+.1f} BPM)")
+        else:
+            col3.metric("Recording BPM", "—")
+            st.info("Recording BPM is not available.")
+
+    st.divider()
+
     st.subheader("Performance Details / 演奏细节")
 
     tab1, tab2 = st.tabs(["Timing / 节奏", "Dynamics / 力度"])
@@ -162,9 +217,8 @@ def _render_results() -> None:
             st.warning("你的节奏稳定性还有提升空间，击打间的时间波动比较明显。")
 
     with tab2:
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         dynamic_range = features.get("dynamic_range_db")
-        strength_std = features.get("strength_std_db")
 
         with col1:
             st.metric(
@@ -184,22 +238,6 @@ def _render_results() -> None:
             )
 
         with col2:
-            st.metric(
-                "Strength Stability / 力度稳定性",
-                _fmt(strength_std, suffix=" dB"),
-                help="数值越小越好，表示你的每一下击打力度越一致。",
-            )
-            st.caption(
-                """
-                **参考标准：**
-                - < 4 dB：每一下力度非常均匀，控制优秀
-                - 4–8 dB：整体比较均匀，但仍有轻微波动
-                - 8–12 dB：力度差异明显，控制不够稳定
-                - > 12 dB：力度波动较大，听起来不均匀
-                """
-            )
-
-        with col3:
             st.metric(
                 "Accent Contrast / 轻重音对比",
                 _fmt(dynamic_range, suffix=" dB"),

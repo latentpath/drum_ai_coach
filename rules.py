@@ -156,9 +156,8 @@ def _compute_score_summary(
         },
         "dynamics": {
             "range_score": round(range_score, 1),
-            "strength_stability_score": round(strength_consistency_score, 1),
             "label": _label_score(dynamics_score),
-            "formula": "0.6*range_score + 0.4*strength_stability_score",
+            "formula": "0.6*range_score + 0.4*strength_internal",
         },
     }
 
@@ -185,7 +184,6 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
     bpm_estimate = _safe_float(features.get("bpm_estimate"))
 
     interval_cv = _safe_ratio(interval_std_ms, average_interval_ms)
-    strength_cv = _safe_ratio(strength_std_db, average_strength_db)
     accent_contrast = dynamic_range_db
     tempo_bias = _classify_tempo_bias(mean_timing_error_ms)
     timing_stability = _classify_timing_stability(timing_std_ms)
@@ -286,9 +284,7 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
         },
         "dynamics": {
             "average_strength_db": average_strength_db,
-            "strength_std_db": strength_std_db,
             "dynamic_range_db": dynamic_range_db,
-            "strength_cv": strength_cv,
             "accent_contrast": accent_contrast,
             "interpretation": dynamics_interpretation,
         },
@@ -316,7 +312,6 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
         "average_interval_ms": average_interval_ms,
         "interval_std_ms": interval_std_ms,
         "average_strength_db": average_strength_db,
-        "strength_std_db": strength_std_db,
     }
 
     raw_feature_preview = _copy_if_present(
@@ -334,7 +329,6 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
             "timing_deviation_mean_ms",
             "timing_deviation_std_ms",
             "average_strength_db",
-            "strength_std_db",
             "dynamic_range_db",
             "onset_times_seconds",
             "hit_intervals_ms",
