@@ -156,46 +156,91 @@ def _render_results() -> None:
     tab1, tab2 = st.tabs(["Timing / 节奏", "Dynamics / 力度"])
 
     with tab1:
-        col1, col2 = st.columns(2)
-        mean_error = features.get("mean_timing_error_ms") or features.get("timing_deviation_mean_ms")
+        mean_error = features.get("mean_timing_error_ms")
+        timing_bias = features.get("timing_bias_ms", features.get("timing_deviation_mean_ms"))
         timing_std = features.get("timing_deviation_std_ms")
+        target_bpm_value = float(st.session_state.get("target_bpm", 60))
+        practice_mode_value = st.session_state.get("practice_mode", "Play on beat / 四分音符")
+        note_factor_map = {
+            "Play on beat / 四分音符": 1.0,
+            "Fill or faster hits / 八分音符": 2.0,
+            "Fast practice / 十六分音符": 4.0,
+        }
+        note_factor_value = note_factor_map.get(practice_mode_value, 1.0)
+        expected_hit_bpm = target_bpm_value * note_factor_value
+        target_interval_ms = 60000.0 / expected_hit_bpm if expected_hit_bpm > 0 else None
+
+        mean_error_pct = (
+            abs(float(mean_error)) / target_interval_ms * 100.0
+            if mean_error is not None and target_interval_ms is not None
+            else None
+        )
+        timing_bias_pct = (
+            float(timing_bias) / target_interval_ms * 100.0
+            if timing_bias is not None and target_interval_ms is not None
+            else None
+        )
+        timing_std_pct = (
+            float(timing_std) / target_interval_ms * 100.0
+            if timing_std is not None and target_interval_ms is not None
+            else None
+        )
+        col1, col2, col3 = st.columns(3)
 
         with col1:
             st.metric(
                 "Mean Timing Error / 平均偏差",
-                _fmt(mean_error, suffix=" ms"),
-                help="Average difference between your hits and the expected beat.",
+                _fmt(mean_error_pct, suffix="%"),
+                help="Mean absolute interval error as a percentage of the target interval.",
             )
             st.caption(
                 """
-                **参考标准：**
-                - <20 ms：人耳几乎听不出偏差（很强）
-                - 20–50 ms：基本 OK
-                - >50 ms：开始明显抢拍 / 拖拍
+                **参考标准（相对目标间隔）：**
+                - <5%：非常准，几乎听不出明显偏差
+                - 5–10%：基本 OK
+                - >10%：间隔误差开始明显
                 """
             )
 
         with col2:
             st.metric(
-                "Timing Stability / 稳定性",
-                _fmt(timing_std, suffix=" ms"),
-                help="How consistent your timing is across hits.",
+                "Timing Bias / 整体节奏倾向",
+                _fmt(timing_bias_pct, suffix="%"),
+                help="Negative means rushing ahead; positive means dragging behind.",
             )
             st.caption(
                 """
-                **参考标准：**
-                - <20 ms：非常稳（职业级）
-                - 20–40 ms：还不错
-                - >40 ms：开始明显“抖”
+                **参考标准（相对目标间隔）：**
+                - < -5%：整体偏快，容易抢拍
+                - -5% 到 5%：整体速度接近目标
+                - > 5%：整体偏慢，容易拖拍
                 """
             )
 
-        if mean_error is not None and float(mean_error) > 50:
-            st.warning("你的平均节奏偏差大于 +50 ms，说明整体有些拖拍。")
-        elif mean_error is not None and float(mean_error) < -50:
-            st.warning("你的平均节奏偏差小于 -50 ms，说明整体有些抢拍。")
+        with col3:
+            st.metric(
+                "Timing Stability / 稳定性",
+                _fmt(timing_std_pct, suffix="%"),
+                help="Time interval SD as a percentage of the target interval.",
+            )
+            st.caption(
+                """
+                **参考标准（相对目标间隔）：**
+                - <5%：非常稳
+                - 5–10%：基本稳定
+                - >10%：节奏波动明显
+                """
+            )
 
-        if timing_std is not None and float(timing_std) > 40:
+        if timing_bias_pct is not None:
+            if timing_bias_pct < -5:
+                st.warning("整体偏快，存在抢拍倾向。")
+            elif timing_bias_pct > 5:
+                st.warning("整体偏慢，存在拖拍倾向。")
+            else:
+                st.success("整体速度接近目标，没有明显抢拍或拖拍。")
+
+        if timing_std_pct is not None and timing_std_pct > 10:
             st.warning("你的节奏稳定性还有提升空间，击打间的时间波动比较明显。")
 
     with tab2:
@@ -323,6 +368,10 @@ st.info(
 st.info(
     "EN: After you start recording, you must stop the recorder first. When the audio player appears below, the recording is ready to analyze.\n\n"
     "中文：开始录音后，需要先停止录音。只有下面出现可回放的音频播放器后，才表示录音已经成功，可以点击 Analyze。"
+)
+st.info(
+    "EN: Recommended recording length: 30-60 seconds. For more reliable feedback, please play steadily for at least 1 minute.\n\n"
+    "中文：建议录音长度为 30-60 秒。为了获得更稳定可靠的反馈，请尽量连续稳定演奏至少 1 分钟。"
 )
 
 control_col1, control_col2 = st.columns([2, 1])

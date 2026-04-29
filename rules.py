@@ -68,6 +68,28 @@ def _classify_dynamics(dynamic_range_db: Optional[float], strength_std_db: Optio
     return "controlled"
 
 
+def _is_metronome_like(
+    *,
+    timing_std_ms: Optional[float],
+    mean_timing_error_ms: Optional[float],
+    dynamic_range_db: Optional[float],
+    recording_bpm: Optional[float],
+    target_bpm: Optional[float],
+    onset_count: Optional[int],
+) -> bool:
+    if onset_count is None or onset_count < 8:
+        return False
+    if timing_std_ms is None or timing_std_ms > 15:
+        return False
+    if mean_timing_error_ms is None or abs(mean_timing_error_ms) > 20:
+        return False
+    if dynamic_range_db is None or dynamic_range_db > 6:
+        return False
+    if recording_bpm is not None and target_bpm is not None and abs(recording_bpm - target_bpm) > 5:
+        return False
+    return True
+
+
 def _clamp_score(value: float) -> float:
     return max(0.0, min(100.0, float(value)))
 
@@ -184,12 +206,22 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
     average_strength_db = _safe_float(features.get("average_strength_db"))
     strength_std_db = _safe_float(features.get("strength_std_db"))
     bpm_estimate = _safe_float(features.get("bpm_estimate"))
+    target_bpm = _safe_float(features.get("target_bpm"))
 
     interval_cv = _safe_ratio(interval_std_ms, average_interval_ms)
     accent_contrast = dynamic_range_db
     tempo_bias = _classify_tempo_bias(mean_timing_error_ms)
     timing_stability = _classify_timing_stability(timing_std_ms)
     dynamics_interpretation = _classify_dynamics(dynamic_range_db, strength_std_db)
+    metronome_like = _is_metronome_like(
+        timing_std_ms=timing_std_ms,
+        mean_timing_error_ms=mean_timing_error_ms,
+        dynamic_range_db=dynamic_range_db,
+        recording_bpm=bpm_estimate,
+        target_bpm=target_bpm,
+        onset_count=int(onset_count) if onset_count is not None else None,
+    )
+    audio_type = "metronome_like" if metronome_like else "performance_like"
 
     rule_hits: List[Dict[str, Any]] = []
 
@@ -229,7 +261,7 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
             }
         )
 
-    if dynamic_range_db is not None and dynamic_range_db < 6:
+    if not metronome_like and dynamic_range_db is not None and dynamic_range_db < 6:
         rule_hits.append(
             {
                 "issue": "flat_dynamics",
@@ -242,7 +274,7 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
             )
 
     timing_issue = tempo_bias != "on_time" or timing_stability != "stable"
-    dynamics_issue = dynamics_interpretation in {"flat", "too_variable"}
+    dynamics_issue = (not metronome_like) and dynamics_interpretation in {"flat", "too_variable"}
 
     if timing_issue and dynamics_issue:
         main_issue = "both"
@@ -288,13 +320,14 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
             "average_strength_db": average_strength_db,
             "dynamic_range_db": dynamic_range_db,
             "accent_contrast": accent_contrast,
-            "interpretation": dynamics_interpretation,
+            "interpretation": "reference_click" if metronome_like else dynamics_interpretation,
         },
         "overall": {
             "main_issue": main_issue,
             "severity": severity,
             "short_summary": short_summary,
             "priority": priority,
+            "audio_type": audio_type,
         },
     }
 
@@ -310,10 +343,12 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
         "timing_std_ms": timing_std_ms,
         "dynamic_range_db": dynamic_range_db,
         "bpm_estimate": bpm_estimate,
+        "target_bpm": target_bpm,
         "onset_count": onset_count,
         "average_interval_ms": average_interval_ms,
         "interval_std_ms": interval_std_ms,
         "average_strength_db": average_strength_db,
+        "audio_type": audio_type,
     }
 
     raw_feature_preview = _copy_if_present(
@@ -347,5 +382,6 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
         "analyzer_summary": analyzer_summary,
         "score_summary": score_summary,
         "analyzer_features": analyzer_features,
+        "audio_type": audio_type,
         "rule_hits": rule_hits,
     }

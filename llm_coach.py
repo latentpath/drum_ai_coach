@@ -68,6 +68,7 @@ def _build_analyzer_summary(features: Dict[str, Any], rules: Dict[str, Any]) -> 
     timing = analyzer_summary.get("timing", {})
     dynamics = analyzer_summary.get("dynamics", {})
     overall = analyzer_summary.get("overall", {})
+    audio_type = rules.get("audio_type", overall.get("audio_type"))
 
     bpm = analyzer_features.get("bpm_estimate", features.get("bpm_estimate"))
     onset_count = timing.get("onset_count", analyzer_features.get("onset_count", features.get("onset_count")))
@@ -88,7 +89,9 @@ def _build_analyzer_summary(features: Dict[str, Any], rules: Dict[str, Any]) -> 
         f"Loudness averages around {_format_number(avg_strength_db)} dB, with strength variation {_format_number(strength_std_db)} dB and dynamic range {_format_number(dynamic_range_db)} dB."
     )
 
-    if isinstance(overall.get("short_summary"), str) and overall.get("short_summary"):
+    if audio_type == "metronome_like":
+        parts.append("This sounds like a metronome-like reference click, so the timing metrics are more meaningful than the dynamics metrics.")
+    elif isinstance(overall.get("short_summary"), str) and overall.get("short_summary"):
         parts.append(overall["short_summary"])
     elif rule_hits:
         issue_summaries = [hit.get("summary") for hit in rule_hits if isinstance(hit.get("summary"), str)]
@@ -102,8 +105,15 @@ def _build_analyzer_summary(features: Dict[str, Any], rules: Dict[str, Any]) -> 
 
 def _build_coaching_advice(rules: Dict[str, Any], *, target_bpm: int) -> str:
     rule_hits = rules.get("rule_hits", [])
+    audio_type = rules.get("audio_type")
     if not isinstance(rule_hits, list):
         rule_hits = []
+
+    if audio_type == "metronome_like":
+        return (
+            f"- Use this recording mainly as a timing reference at {target_bpm} BPM.\n"
+            "- Compare future drum takes against this steady click rather than judging its dynamics."
+        )
 
     suggestions: List[str] = []
     for hit in rule_hits[:2]:
@@ -122,8 +132,12 @@ def _build_coaching_advice(rules: Dict[str, Any], *, target_bpm: int) -> str:
 
 def _build_encouragement(rules: Dict[str, Any]) -> str:
     rule_hits = rules.get("rule_hits", [])
+    audio_type = rules.get("audio_type")
     if not isinstance(rule_hits, list):
         rule_hits = []
+
+    if audio_type == "metronome_like":
+        return "This reference click is steady and useful for calibration - you can now compare your real playing against it."
 
     if any(hit.get("issue") == "unstable_timing" for hit in rule_hits):
         return "Good job getting a full take recorded - a little focused timing work will make the groove feel much stronger."
@@ -152,6 +166,10 @@ def _translate_analyzer_summary(analyzer_summary_en: str) -> str:
         .replace("Dynamics need more control, while timing looks manageable.", "力度控制需要加强，节奏整体还可以。")
         .replace("Timing and dynamics look reasonably controlled in this sample.", "这段样本里的节奏和力度整体控制得还不错。")
         .replace("Timing is unstable, while dynamics also need attention.", "节奏不够稳定，同时力度控制也需要继续关注。")
+        .replace(
+            "This sounds like a metronome-like reference click, so the timing metrics are more meaningful than the dynamics metrics.",
+            "这段音频更像参考节拍器点击音，因此节奏指标更有参考意义，力度指标不适合按真实演奏来解读。",
+        )
     )
 
 
@@ -169,6 +187,9 @@ def _translate_advice_lines(advice_en: str) -> str:
             .replace("Practice alternating light hits and accents.", "练习轻击和重音之间的对比。")
             .replace("Keep the spacing between hits as even as possible.", "尽量让每次敲击之间的间隔保持均匀。")
             .replace("Record another short take and compare whether the timing and dynamics stay consistent.", "再录一小段，对比节奏和力度是否更稳定。")
+            .replace("Use this recording mainly as a timing reference at ", "把这段录音主要当作 ")
+            .replace(" BPM.\n", " BPM 的节奏参考。\n")
+            .replace("Compare future drum takes against this steady click rather than judging its dynamics.", "之后把真实鼓点和这段稳定点击音对比，而不是拿它的力度变化做判断。")
         )
         translated.append(f"- {text}")
     return "\n".join(translated)
@@ -188,6 +209,10 @@ def _translate_encouragement(encouragement_en: str) -> str:
         .replace(
             "Good work recording your playing - steady small improvements will add up quickly.",
             "能把自己的演奏录下来就是很好的开始，持续一点点进步，很快就会听出差别。",
+        )
+        .replace(
+            "This reference click is steady and useful for calibration - you can now compare your real playing against it.",
+            "这段参考点击音本身很稳定，适合拿来做校准；接下来可以把你的真实演奏和它对比。",
         )
     )
 

@@ -128,6 +128,12 @@ def extract_features_to_json(
         n_fft=n_fft,
     )
 
+    def compute_interval_std(times: np.ndarray) -> float:
+        if len(times) < 3:
+            return float("inf")
+        intervals = np.diff(times) * 1000.0
+        return float(np.std(intervals))
+
     expected_hit_bpm: Optional[float] = None
     if target_bpm is not None and target_bpm > 0 and note_factor > 0:
         expected_hit_bpm = float(target_bpm) * float(note_factor)
@@ -137,9 +143,9 @@ def extract_features_to_json(
 
     # Minimum gap between two valid hits.
     # Example: for 60 BPM quarter notes, expected interval = 1.0 sec,
-    # so we require at least 0.65 sec between consecutive accepted hits.
+    # so we require at least 0.85 sec between consecutive accepted hits.
     if expected_interval_sec_for_filter is not None:
-        min_gap_sec = expected_interval_sec_for_filter * 0.65
+        min_gap_sec = expected_interval_sec_for_filter * 0.85
         wait_frames = max(1, int(min_gap_sec * sample_rate / hop_length))
     else:
         wait_frames = 1
@@ -152,7 +158,7 @@ def extract_features_to_json(
         units="frames",
         backtrack=False,
         wait=wait_frames,
-        delta=0.3,
+        delta=0.5,
     )
     onset_times_raw = librosa.frames_to_time(
         onset_frames,
@@ -169,7 +175,29 @@ def extract_features_to_json(
         elif current_time - filtered_onsets[-1] >= min_gap_sec:
             filtered_onsets.append(current_time)
 
-    onset_times = np.array(filtered_onsets, dtype=np.float64)
+    onset_times_onset = np.array(filtered_onsets, dtype=np.float64)
+
+    tempo_bt, beat_frames = librosa.beat.beat_track(
+        onset_envelope=onset_env,
+        sr=sample_rate,
+        hop_length=hop_length,
+    )
+    tempo_bt_value = float(np.ravel(np.asarray(tempo_bt))[0]) if np.size(tempo_bt) > 0 else None
+    onset_times_bt = librosa.frames_to_time(
+        beat_frames,
+        sr=sample_rate,
+        hop_length=hop_length,
+    )
+
+    std_onset = compute_interval_std(onset_times_onset)
+    std_bt = compute_interval_std(onset_times_bt)
+
+    if std_bt < std_onset and std_bt < 30:
+        onset_times = np.asarray(onset_times_bt, dtype=np.float64)
+        method_used = "beat_tracking"
+    else:
+        onset_times = onset_times_onset
+        method_used = "onset_detection"
 
     hit_intervals_sec = np.diff(onset_times) if len(onset_times) >= 2 else np.array([], dtype=np.float32)
     hit_intervals_ms = hit_intervals_sec * 1000.0
@@ -193,6 +221,15 @@ def extract_features_to_json(
         timing_interval_error_ms = (record_intervals_ms - true_interval_ms).tolist()
         timing_deviation_ms = timing_interval_error_ms
 
+    print("duration_sec:", len(waveform) / sample_rate)
+    print("method_used:", method_used)
+    print("std_onset:", std_onset)
+    print("std_bt:", std_bt)
+    print("onset_count:", len(onset_times))
+    print("onset_times:", onset_times)
+    print("hit_intervals_ms:", np.diff(onset_times) * 1000)
+    print("true_interval_ms:", true_interval_ms)
+
     rms = librosa.feature.rms(
         y=waveform,
         frame_length=n_fft,
@@ -201,7 +238,8 @@ def extract_features_to_json(
     rms_db_curve = librosa.amplitude_to_db(rms, ref=np.max)
 
     onset_strength_db: List[float] = []
-    for frame in onset_frames:
+    selected_onset_frames = librosa.time_to_frames(onset_times, sr=sample_rate, hop_length=hop_length)
+    for frame in selected_onset_frames:
         frame_index = int(frame)
         if 0 <= frame_index < len(rms_db_curve):
             onset_strength_db.append(float(rms_db_curve[frame_index]))
@@ -250,6 +288,10 @@ def extract_features_to_json(
         "onset_count": int(len(onset_times)),
         "bpm_estimate": _ensure_jsonable(recording_bpm),
         "recording_bpm": _ensure_jsonable(recording_bpm),
+        "beat_tracking_bpm": _ensure_jsonable(tempo_bt_value),
+        "method_used": method_used,
+        "std_onset_ms": _ensure_jsonable(std_onset if np.isfinite(std_onset) else None),
+        "std_bt_ms": _ensure_jsonable(std_bt if np.isfinite(std_bt) else None),
         "target_bpm": _ensure_jsonable(target_bpm),
         "note_factor": _ensure_jsonable(note_factor),
         "expected_hit_bpm": _ensure_jsonable(expected_hit_bpm),
@@ -265,6 +307,9 @@ def extract_features_to_json(
         "timing_interval_error_ms": [float(x) for x in timing_interval_error_ms],
         "mean_timing_error_ms": _ensure_jsonable(
             float(np.mean(np.abs(timing_interval_error_ms))) if len(timing_interval_error_ms) > 0 else None
+        ),
+        "timing_bias_ms": _ensure_jsonable(
+            float(np.mean(timing_interval_error_ms)) if len(timing_interval_error_ms) > 0 else None
         ),
         "timing_deviation_mean_ms": _ensure_jsonable(
             float(np.mean(timing_deviation_ms)) if len(timing_deviation_ms) > 0 else None
