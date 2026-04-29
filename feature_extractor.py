@@ -129,13 +129,21 @@ def extract_features_to_json(
     )
 
     expected_hit_bpm: Optional[float] = None
-    expected_interval_sec: Optional[float] = None
     if target_bpm is not None and target_bpm > 0 and note_factor > 0:
         expected_hit_bpm = float(target_bpm) * float(note_factor)
-        expected_interval_sec = 60.0 / expected_hit_bpm
+        expected_interval_sec_for_filter = 60.0 / expected_hit_bpm
+    else:
+        expected_interval_sec_for_filter = None
 
-    min_gap_sec = (expected_interval_sec * 0.7) if expected_interval_sec else 0.0
-    wait_frames = max(1, int(min_gap_sec * sample_rate / hop_length)) if min_gap_sec > 0 else 1
+    # Minimum gap between two valid hits.
+    # Example: for 60 BPM quarter notes, expected interval = 1.0 sec,
+    # so we require at least 0.65 sec between consecutive accepted hits.
+    if expected_interval_sec_for_filter is not None:
+        min_gap_sec = expected_interval_sec_for_filter * 0.65
+        wait_frames = max(1, int(min_gap_sec * sample_rate / hop_length))
+    else:
+        wait_frames = 1
+        min_gap_sec = 0.05
 
     onset_frames = librosa.onset.onset_detect(
         onset_envelope=onset_env,
@@ -144,9 +152,24 @@ def extract_features_to_json(
         units="frames",
         backtrack=False,
         wait=wait_frames,
-        delta=0.2,
+        delta=0.3,
     )
-    onset_times = librosa.frames_to_time(onset_frames, sr=sample_rate, hop_length=hop_length)
+    onset_times_raw = librosa.frames_to_time(
+        onset_frames,
+        sr=sample_rate,
+        hop_length=hop_length,
+    )
+
+    # Extra post-filtering: keep only one onset within each expected beat window.
+    filtered_onsets: List[float] = []
+    for t in onset_times_raw:
+        current_time = float(t)
+        if not filtered_onsets:
+            filtered_onsets.append(current_time)
+        elif current_time - filtered_onsets[-1] >= min_gap_sec:
+            filtered_onsets.append(current_time)
+
+    onset_times = np.array(filtered_onsets, dtype=np.float64)
 
     hit_intervals_sec = np.diff(onset_times) if len(onset_times) >= 2 else np.array([], dtype=np.float32)
     hit_intervals_ms = hit_intervals_sec * 1000.0
