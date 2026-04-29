@@ -1,9 +1,38 @@
 {
-  "analyzer_summary": "The recording is around 123 BPM with 248 detected hits. The average gap between hits is about 242.1 ms, with interval variation around 119.8 ms. Loudness averages around -3.6 dB, with strength variation 3.2 dB and dynamic range 38.6 dB. The student's timing is unstable.",
-  "coaching_advice": "- Practice with a 100 BPM metronome. Practice counting subdivisions.",
+  "analyzer_summary_zh": "这段录音大约是 123 BPM，一共检测到 248 次敲击。 平均每次敲击之间的间隔约为 242.1 ms，间隔波动大约为 119.8 毫秒。 平均力度约为 -3.6 dB，力度波动约为 3.2 dB，动态范围约为 38.6 dB. 节奏一致性需要优先加强，力度整体还可以。",
+  "analyzer_summary_structured": {
+    "timing": {
+      "onset_count": 248,
+      "average_interval_ms": 242.0703774087233,
+      "interval_std_ms": 119.75885027505348,
+      "interval_cv": 0.4947274076119064,
+      "mean_timing_error_ms": -3.0897520298454477,
+      "timing_std_ms": 140.38155911237828,
+      "tempo_bias": "on_time",
+      "stability": "unstable"
+    },
+    "dynamics": {
+      "average_strength_db": -3.6002827613584456,
+      "strength_std_db": 3.212552653710377,
+      "dynamic_range_db": 38.60589408874512,
+      "strength_cv": 0.892305651153419,
+      "accent_contrast": 38.60589408874512,
+      "interpretation": "good_contrast"
+    },
+    "overall": {
+      "main_issue": "timing",
+      "severity": "high",
+      "short_summary": "Timing needs more consistency, while dynamics look manageable.",
+      "priority": "Practice timing first before focusing on accents."
+    }
+  },
+  "analyzer_summary": "The recording is around 123 BPM with 248 detected hits. The average gap between hits is about 242.1 ms, with interval variation around 119.8 ms. Loudness averages around -3.6 dB, with strength variation 3.2 dB and dynamic range 38.6 dB. Timing needs more consistency, while dynamics look manageable.",
+  "coaching_advice_zh": "- 用 60 BPM 的节拍器练习。练习数拍和细分音符。",
+  "coaching_advice": "- Practice with a 60 BPM metronome. Practice counting subdivisions.",
+  "encouragement_zh": "这次完整录下来已经很不错了，再专注练一点节奏稳定性，律动就会明显更扎实。",
   "encouragement": "Good job getting a full take recorded - a little focused timing work will make the groove feel much stronger.",
-  "markdown": "## Analyzer Summary\nThe recording is around 123 BPM with 248 detected hits. The average gap between hits is about 242.1 ms, with interval variation around 119.8 ms. Loudness averages around -3.6 dB, with strength variation 3.2 dB and dynamic range 38.6 dB. The student's timing is unstable.\n\n## Coaching Advice\n- Practice with a 100 BPM metronome. Practice counting subdivisions.\n\n## Encouragement\nGood job getting a full take recorded - a little focused timing work will make the groove feel much stronger.\n",
-  "target_bpm": 100,
+  "markdown": "## Analyzer Summary / 分析总结\nEN: The recording is around 123 BPM with 248 detected hits. The average gap between hits is about 242.1 ms, with interval variation around 119.8 ms. Loudness averages around -3.6 dB, with strength variation 3.2 dB and dynamic range 38.6 dB. Timing needs more consistency, while dynamics look manageable.\n\n中文：这段录音大约是 123 BPM，一共检测到 248 次敲击。 平均每次敲击之间的间隔约为 242.1 ms，间隔波动大约为 119.8 毫秒。 平均力度约为 -3.6 dB，力度波动约为 3.2 dB，动态范围约为 38.6 dB. 节奏一致性需要优先加强，力度整体还可以。\n\n## Coaching Advice / 练习建议\nEN:\n- Practice with a 60 BPM metronome. Practice counting subdivisions.\n\n中文：\n- 用 60 BPM 的节拍器练习。练习数拍和细分音符。\n\n## Encouragement / 鼓励\nEN: Good job getting a full take recorded - a little focused timing work will make the groove feel much stronger.\n\n中文：这次完整录下来已经很不错了，再专注练一点节奏稳定性，律动就会明显更扎实。\n",
+  "target_bpm": 60,
   "rule_hits": [
     {
       "issue": "unstable_timing",
@@ -26,5 +55,5 @@
     "strength_std_db": 3.212552653710377
   },
   "source_path": "/Users/yuqingshang/drum_ai_coach/data/raw/test1.wav",
-  "features_json_path": "/Users/yuqingshang/drum_ai_coach/data/processed/test1_features.json"
+  "features_json_path": null
 }
