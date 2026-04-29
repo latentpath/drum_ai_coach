@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import inspect
 import os
 import tempfile
 from datetime import datetime
@@ -161,7 +162,7 @@ def _render_results() -> None:
             st.warning("你的节奏稳定性还有提升空间，击打间的时间波动比较明显。")
 
     with tab2:
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         dynamic_range = features.get("dynamic_range_db")
         strength_std = features.get("strength_std_db")
 
@@ -182,7 +183,7 @@ def _render_results() -> None:
                 """
             )
 
-        with col1:
+        with col2:
             st.metric(
                 "Strength Stability / 力度稳定性",
                 _fmt(strength_std, suffix=" dB"),
@@ -198,7 +199,7 @@ def _render_results() -> None:
                 """
             )
 
-        with col2:
+        with col3:
             st.metric(
                 "Accent Contrast / 轻重音对比",
                 _fmt(dynamic_range, suffix=" dB"),
@@ -238,9 +239,11 @@ def _render_results() -> None:
             saved_feedback = generate_feedback(
                 features,
                 rules,
-                target_bpm=target_bpm,
-                output_path=report_path,
-                save_output=True,
+                **_generate_feedback_kwargs(
+                    target_bpm=target_bpm,
+                    output_path=report_path,
+                    save_output=True,
+                ),
             )
 
             st.session_state["feedback"] = saved_feedback
@@ -270,6 +273,21 @@ def _render_results() -> None:
 
 
 _init_state()
+
+
+def _generate_feedback_kwargs(*, target_bpm: int, output_path: str | None = None, save_output: bool = False) -> dict:
+    """
+    Be compatible with both older and newer generate_feedback() signatures.
+    """
+    params = inspect.signature(generate_feedback).parameters
+    kwargs = {}
+    if "target_bpm" in params:
+        kwargs["target_bpm"] = target_bpm
+    if output_path is not None and "output_path" in params:
+        kwargs["output_path"] = output_path
+    if "save_output" in params:
+        kwargs["save_output"] = save_output
+    return kwargs
 
 st.title("Drum AI Coach")
 st.caption(
@@ -308,8 +326,10 @@ if analyze_clicked:
             feedback = generate_feedback(
                 features,
                 rules,
-                target_bpm=int(target_bpm),
-                save_output=False,
+                **_generate_feedback_kwargs(
+                    target_bpm=int(target_bpm),
+                    save_output=False,
+                ),
             )
             st.session_state["features"] = features
             st.session_state["rules"] = rules
