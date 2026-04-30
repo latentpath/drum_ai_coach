@@ -104,24 +104,44 @@ def _label_score(score: float) -> str:
     return "Focus required"
 
 
-def _timing_accuracy_score(mean_timing_error_ms: Optional[float]) -> float:
-    # Score timing accuracy by absolute deviation:
-    # -50 ms and +50 ms should be penalized equally.
-    error = abs(float(mean_timing_error_ms or 0.0))
-    if error <= 50:
+def _timing_accuracy_score(
+    mean_timing_error_ms: Optional[float],
+    true_interval_ms: Optional[float],
+) -> float:
+    if mean_timing_error_ms is None or true_interval_ms in (None, 0):
+        return 0.0
+
+    error_pct = abs(mean_timing_error_ms) / true_interval_ms * 100.0
+
+    if error_pct <= 2:
         return 100.0
-    if error <= 100:
-        return _clamp_score(100.0 - (error - 50.0) / 50.0 * 50.0)
-    return _clamp_score(50.0 - (error - 100.0) / 100.0 * 50.0)
+    if error_pct <= 5:
+        return _clamp_score(100.0 - (error_pct - 2.0) / 3.0 * 15.0)
+    if error_pct <= 10:
+        return _clamp_score(85.0 - (error_pct - 5.0) / 5.0 * 25.0)
+    if error_pct <= 20:
+        return _clamp_score(60.0 - (error_pct - 10.0) / 10.0 * 40.0)
+    return _clamp_score(20.0 - (error_pct - 20.0) / 20.0 * 20.0)
 
 
-def _timing_stability_score(timing_std_ms: Optional[float]) -> float:
-    value = float(timing_std_ms or 0.0)
-    if value <= 40:
+def _timing_stability_score(
+    timing_std_ms: Optional[float],
+    true_interval_ms: Optional[float],
+) -> float:
+    if timing_std_ms is None or true_interval_ms in (None, 0):
+        return 0.0
+
+    std_pct = timing_std_ms / true_interval_ms * 100.0
+
+    if std_pct <= 2:
         return 100.0
-    if value <= 80:
-        return _clamp_score(100.0 - (value - 40.0) / 40.0 * 50.0)
-    return _clamp_score(50.0 - (value - 80.0) / 80.0 * 50.0)
+    if std_pct <= 4:
+        return _clamp_score(100.0 - (std_pct - 2.0) / 2.0 * 20.0)
+    if std_pct <= 8:
+        return _clamp_score(80.0 - (std_pct - 4.0) / 4.0 * 30.0)
+    if std_pct <= 15:
+        return _clamp_score(50.0 - (std_pct - 8.0) / 7.0 * 40.0)
+    return _clamp_score(10.0 - (std_pct - 15.0) / 10.0 * 10.0)
 
 
 def _strength_stability_score(strength_std_db: Optional[float]) -> float:
@@ -137,11 +157,12 @@ def _compute_score_summary(
     *,
     mean_timing_error_ms: Optional[float],
     timing_std_ms: Optional[float],
+    true_interval_ms: Optional[float],
     dynamic_range_db: Optional[float],
     strength_std_db: Optional[float],
 ) -> Dict[str, Any]:
-    accuracy_score = _timing_accuracy_score(mean_timing_error_ms)
-    stability_score = _timing_stability_score(timing_std_ms)
+    accuracy_score = _timing_accuracy_score(mean_timing_error_ms, true_interval_ms)
+    stability_score = _timing_stability_score(timing_std_ms, true_interval_ms)
 
     timing_score = _clamp_score(0.4 * accuracy_score + 0.6 * stability_score)
 
@@ -200,6 +221,7 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
         features.get("timing_std_ms", features.get("timing_deviation_std_ms"))
     )
     dynamic_range_db = _safe_float(features.get("dynamic_range_db"))
+    true_interval_ms = _safe_float(features.get("true_interval_ms"))
     onset_count = features.get("onset_count")
     average_interval_ms = _safe_float(features.get("average_interval_ms"))
     interval_std_ms = _safe_float(features.get("interval_std_ms"))
@@ -334,6 +356,7 @@ def get_rules(features: Dict[str, Any]) -> Dict[str, Any]:
     score_summary = _compute_score_summary(
         mean_timing_error_ms=mean_timing_error_ms,
         timing_std_ms=timing_std_ms,
+        true_interval_ms=true_interval_ms,
         dynamic_range_db=dynamic_range_db,
         strength_std_db=strength_std_db,
     )

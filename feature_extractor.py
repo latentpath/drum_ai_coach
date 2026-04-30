@@ -121,6 +121,21 @@ def extract_features_to_json(
     if waveform.size == 0:
         raise ValueError("Waveform is empty.")
 
+    # Remove leading/trailing silence or invalid quiet segments.
+    trimmed_waveform, trim_index = librosa.effects.trim(
+        waveform,
+        top_db=30,
+    )
+
+    # If trimming removes almost everything, keep original audio.
+    if trimmed_waveform.size > sample_rate * 0.5:
+        waveform = trimmed_waveform
+        trim_start_sec = trim_index[0] / sample_rate
+        trim_end_sec = trim_index[1] / sample_rate
+    else:
+        trim_start_sec = 0.0
+        trim_end_sec = len(waveform) / sample_rate
+
     onset_env = librosa.onset.onset_strength(
         y=waveform,
         sr=sample_rate,
@@ -284,6 +299,9 @@ def extract_features_to_json(
         "source_path": source_path,
         "sample_rate": int(sample_rate),
         "duration_sec": float(len(waveform) / sample_rate),
+        "trim_start_sec": _ensure_jsonable(trim_start_sec),
+        "trim_end_sec": _ensure_jsonable(trim_end_sec),
+        "trimmed_duration_sec": _ensure_jsonable(float(len(waveform) / sample_rate)),
         "analysis_type": "drum_timing_and_dynamics",
         "onset_count": int(len(onset_times)),
         "bpm_estimate": _ensure_jsonable(recording_bpm),
